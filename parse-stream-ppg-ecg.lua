@@ -5,7 +5,7 @@
 
 ]]--
 
-local SRC_FILENAME = [[C:\Users\chear\Desktop\LuaScript\raw\breo_ECG+PPG.TXT]];
+local SRC_FILENAME = [[/Users/chear_mac/Desktop/LuaScript/raw/breo_ECG+PPG.TXT]];
 
 
 -- Global variables for splitFile functionality
@@ -80,7 +80,7 @@ local function handleDataRow( excodeLevel, code, vLength, valueBytes )
             -- Output raw wave sample value bytes
             local rawValue = valueBytes[1]*256 + valueBytes[2];
             if( rawValue >= 2^15 ) then rawValue = rawValue - 2^16; end
-            print("raw:"..rawValue);
+            print(""..rawValue);
             splitFile:write( rawValue, "\n" );
 
 
@@ -171,6 +171,14 @@ local function parsePayload( payload )
 
 end -- parsePayload()
 
+--
+-- parse the payload from ppg package like '18 03 14 58 24 ', '14 58 24' its raw wave sample
+--  values = 0x14 * 65536 + 0x58 * 256 + 0x24 
+--
+local function parseRawData4PPG(valueBytes)
+	local rawValue = valueBytes[1]*65536 + valueBytes[2]*256 + valueBytes[3];
+	print(""..rawValue);
+end	-- parsePayload4PPG
 
 ------------------
 -- BEGIN SCRIPT --
@@ -209,114 +217,67 @@ for i,arg in ipairs( arg ) do
     -- The index (1-based) of the current byte being parsed on the line
     local byteNumber = 0;
     
-    local ppgData = {};
+    local ppgData;
     local ppgDataCount = 0;
-    local ppgRaw = 0;
+    local ppgRaw = 1;
     
     local ecgData = {};
     local ecgDataCount = 0;
-  
+  	
+  	print("----------------------");
+	print("-- Operate Finished --");
+	print("----------------------");
+  	-- For each byte(string) of PPG input...
     for w in string.gmatch(fileString, "(%w%w)%s+") do
         word = w;
+        --print(word);
         -- SYNC
         if( state == "SYNC" ) then
-            if( word == "AA" ) then
-                state = "SYNC2";
-                table.insert(ecgData, word);
-            else if(word == "18")
-                state = "SYNC2";
-                table.insert(ppgData, word);
-            else
+    		if( word ~= "18" ) then
                 printErr( lineNumber, byteNumber, word, "Not SYNC" );
+            else
+                state = "SYNC2";
             end
         -- SYNC2
         elseif( state == "SYNC2" ) then
-            if( word == "AA" ) then
-                state = "PLENGTH";
-                table.insert(ecgData, word);
-            else if(word == "03")
-                state = "PPG_Raw";
-                table.insert(ppgData, word);
-            else
-                state = "SYNC";
-            end
-        end
-        -- PLENGTH
-        elseif( state == "PLENGTH" ) then
-            pLength = tonumber("0x"..word);
-            if( not pLength or (pLength < 0) or (pLength > 169) ) then
-                printErr( lineNumber, byteNumber, word, "Invalid PLENGTH" );
+            if( word ~= "03" ) then
+                printErr( lineNumber, byteNumber, word, "Unmatched SYNC" );
                 state = "SYNC";
             else
-                payload = {};
-                pLengthReceived = 0;
-                if( pLength > 0 )
-                    then state = "PAYLOAD";
-                else state = "CKSUM";
-                end
+                state = "RAWVALUES";
+                ppgData = {};
             end
-        -- PAYLOAD
-        elseif( state == "PAYLOAD" ) then
-            word = tonumber("0x"..word);
-            table.insert( payload, word );
-            pLengthReceived = pLengthReceived + 1;
-            if( pLengthReceived == pLength ) then
-                state = "CKSUM";
-            end
-
-        -- CKSUM
-        elseif( state == "CKSUM" ) then
-            cksum = assert( tonumber("0x"..word), word );
-            if( not cksum or (cksum < 0) or (cksum > 255) ) then
-                printErr( lineNumber, byteNumber, word, "Invalid CKSUM" );
-            else
-            --printErr( lineNumber, byteNumber, word, "Packet" );
-            end
-
-        -- Calculate payload sum
-        sum = 0;
-        for i,byte in ipairs(payload) do
-            if( not byte or (byte < 0) or (byte > 255) ) then
-                printErr( lineNumber, byteNumber, byte,
-                "Invalid payload byte" );
-            end
-            sum = sum + byte;
-            while( sum >= 256 ) do sum = sum - 256; end
+        -- RAWVALUES
+        elseif( state == "RAWVALUES" ) then        	
+        	word = tonumber("0x"..word);
+        	table.insert(ppgData,word);
+        	ppgRaw = ppgRaw + 1;
+        	if( ppgRaw == 4) then
+        		ppgRaw = 1;
+        		state = "SYNC";
+--        		fin = "-";
+--        		for i,byte in ipairs(ppgData) do
+--        			fin = fin..byte.."-";
+--        		end
+--        		print("ppg count:"..#ppgData..":"..fin);
+        		parseRawData4PPG(ppgData);
+        	end
         end
-
-        -- Check if payload cksum failed...
-        if( cksum ~= (255-sum) ) then
-            printErr( lineNumber, byteNumber, word, "CKSUM failed:" );
-            if( PRINT_CKSUM_ERROR_PAYLOAD ) then
-                io.stderr:write( "    ",
-                "Payload ("..
-                " length: "..string.format("%3d", pLength)..
-                " sum: "..string.format("%02X", sum)..
-                " invert: "..string.format("%02X",255-sum),
-                " ): " );
-                for i,byte in ipairs(payload) do
-                io.stderr:write( " ", string.format("%02X", byte) );
-            end
-            io.stderr:write( "\n" );
-        end
-
-        -- Else payload checksum passed...
-        else
+        
     end
 
-    -- For each byte(string) of input...
---      for w in string.gmatch(fileString, "(%w%w)%s+") do
+    -- For each byte(string) of EEG input...
+--    for w in string.gmatch(fileString, "(%w%w)%s+") do
 --        word = w;
-        
+--        
 --        -- SYNC
 --        if( state == "SYNC" ) then
 --            if( word ~= "AA" ) then
---                if( word~= "")
 --                printErr( lineNumber, byteNumber, word, "Not SYNC" );
 --            else
 --                state = "SYNC2";
 --            end
-            
+--            
 --        -- SYNC2
 --        elseif( state == "SYNC2" ) then
 --            if( word ~= "AA" ) then
@@ -325,7 +286,7 @@ for i,arg in ipairs( arg ) do
 --            else
 --                state = "PLENGTH";
 --            end
-
+--
 --        -- PLENGTH
 --        elseif( state == "PLENGTH" ) then
 --            pLength = tonumber("0x"..word);
@@ -340,7 +301,7 @@ for i,arg in ipairs( arg ) do
 --            else state = "CKSUM";
 --            end
 --        end
-
+--
 --        -- PAYLOAD
 --        elseif( state == "PAYLOAD" ) then
 --            word = tonumber("0x"..word);
@@ -349,7 +310,7 @@ for i,arg in ipairs( arg ) do
 --            if( pLengthReceived == pLength ) then
 --                state = "CKSUM";
 --            end
-
+--
 --        -- CKSUM
 --        elseif( state == "CKSUM" ) then
 --            cksum = assert( tonumber("0x"..word), word );
@@ -358,7 +319,7 @@ for i,arg in ipairs( arg ) do
 --            else
 --            --printErr( lineNumber, byteNumber, word, "Packet" );
 --            end
-
+--
 --        -- Calculate payload sum
 --        sum = 0;
 --        for i,byte in ipairs(payload) do
@@ -369,7 +330,7 @@ for i,arg in ipairs( arg ) do
 --            sum = sum + byte;
 --            while( sum >= 256 ) do sum = sum - 256; end
 --        end
-
+--
 --        -- Check if payload cksum failed...
 --        if( cksum ~= (255-sum) ) then
 --            printErr( lineNumber, byteNumber, word, "CKSUM failed:" );
@@ -385,22 +346,22 @@ for i,arg in ipairs( arg ) do
 --            end
 --            io.stderr:write( "\n" );
 --        end
-
+--
 --        -- Else payload checksum passed...
 --        else
-
+--
 --        numPackets = numPackets + 1;
-
+--
 --        -- Parse the payload DataRows
 --        parsePayload( payload );
-
+--
 --        end -- "Else checksum passed..."
-
+--
 --        -- Checksum byte done, expecting SYNC byte next
 --        state = "SYNC";
-
+--
 --        end -- "CHKSUM"
-
+--
 --    end -- "For each byte(string) of input..."
 
     print("----------------------");
