@@ -228,7 +228,7 @@ for i,arg in ipairs( arg ) do
     ----------------------
 	-- PPG data parser  --
 	----------------------
-	
+		
   	-- For each byte(string) of PPG input...
     for w in string.gmatch(fileString, "(%w%w)%s+") do
         word = w;
