@@ -224,13 +224,16 @@ for i,arg in ipairs( arg ) do
     local ecgData = {};
     local ecgDataCount = 0;
   	
-  	print("----------------------");
-	print("-- Operate Finished --");
-	print("----------------------");
+ 
+    ----------------------
+	-- PPG data parser  --
+	----------------------
+	
   	-- For each byte(string) of PPG input...
     for w in string.gmatch(fileString, "(%w%w)%s+") do
         word = w;
-        --print(word);
+         
+
         -- SYNC
         if( state == "SYNC" ) then
     		if( word ~= "18" ) then
@@ -265,7 +268,10 @@ for i,arg in ipairs( arg ) do
         end
         
     end
-
+	----------------------
+	--ECG data parser   --
+	----------------------
+	
     -- For each byte(string) of EEG input...
 --    for w in string.gmatch(fileString, "(%w%w)%s+") do
 --        word = w;

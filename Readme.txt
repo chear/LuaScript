@@ -4,4 +4,6 @@ s3_database.lua : planning to capture data from s3 clond for our LifeBeat Band. 
 
 PaserRaw4Filter.lua : use to calculate filter for rawdata.
 
-StreamParse.lua : writed from Kelvin.
+StreamParse.lua : parser data.
+
+parse-stream-ppg-ecg.lua : its sample script for saperate ppg and ecg data that mixed on same txt.
