@@ -7,3 +7,5 @@ PaserRaw4Filter.lua : use to calculate filter for rawdata.
 StreamParse.lua : parser data.
 
 parse-stream-ppg-ecg.lua : its sample script for saperate ppg and ecg data that mixed on same txt.
+
+SepraterRawfromCardioStik.lua : separate EEG&PPG from txt file.
